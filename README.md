@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="logo.png" width="300" max-width="50%" alt=“InteractiveImageView” />
+    <img src="logo.png" width="300" max-width="50%" alt="InteractiveImageView" />
 </p>
 
 <p align="center">
@@ -15,80 +15,99 @@
     </a>
 </p>
 
-Welcome to **Interactive Image View**, a simple library that provides an easier way to interact with image view, like scroll, zoom and crop. In its core it support two image content mode, the one is always square and the second one is custom. For example you can use aspect ration like instagram does 2:3 or 9:16, or any custom value. Basically, it's a thin wrapper around the `UIScrollView` and `UIImageView` APIs that `UIKit` provides.
+A lightweight library for interactive image viewing — scroll, zoom, pinch, rotate, and crop — all inside a single `UIView`. Supports multiple content modes including custom aspect ratios (e.g. 2:3, 9:16). Works with both UIKit and SwiftUI.
 
 ## Features
 
-- [X] Use at any place as UIView, no need to present or configure a viewcontroller.
-- [X] Crop image at current position as user wants.
-- [X] Switch between aspect ration, 2:3 or 1:1, same as Instagram.
-- [X] Can be extended to support different aspect rations.
-- [X] Scroll image view on x and y axis.
-- [X] Double tap to zoom in or zoom out.
-- [X] Rotate image by given degrees.
-- [X] Pinch image view.
+- Crop image at current visible position
+- Switch between content modes: aspect fill, aspect fit, width fill, height fill, or custom ratio
+- Scroll on both axes
+- Double-tap to zoom in/out with configurable zoom factor
+- Pinch to zoom
+- Rotate image by any degree
+- Delegate callbacks for crop, scroll, zoom, and failure events
+- All delegate methods are optional
 
 ### Preview
 <p align="left">
-    <img src=”example-preview.png” width=”380” max-height=”50%” alt=”InteractiveImageView” />
+    <img src="example-preview.png" width="380" max-height="50%" alt="InteractiveImageView" />
 </p>
 
-## Setup
+## UIKit Usage
 
-1. Add a view, and set the class of the view to `InteractiveImageView`.
-2. In your view controller, import InteractiveImageView.
-3. Connect view outlet, configure it with `interactiveImageView.configure(...)`
-4. Add delegates `interactiveImageView.delegate = self`
-5. Listen to delegate observers: `extension ViewController: InteractiveImageViewDelegate { ... }`
-        
-## Methods
-#### Configure view
+### Setup
+
+1. Add a `UIView` and set its class to `InteractiveImageView`
+2. Import `InteractiveImageView`
+3. Configure and set the delegate
+
 ```swift
-if let image = UIImage(named: "image.png") {
-    interactiveImageView.configure(withNextContentMode: .heightFill,
-                      withFocusOffset: .center,
-                      withImage: image)
+import InteractiveImageView
+
+class ViewController: UIViewController, InteractiveImageViewDelegate {
+    @IBOutlet weak var interactiveImageView: InteractiveImageView!
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        interactiveImageView.delegate = self
+
+        if let image = UIImage(named: "photo") {
+            interactiveImageView.configure(
+                withNextContentMode: .heightFill,
+                withFocusOffset: .center,
+                withImage: image
+            )
+        }
+    }
+
+    func didCropImage(image: UIImage, fromView: InteractiveImageView) {
+        // Handle cropped image
+    }
 }
 ```
-#### Crop and get image without delegate methods
+
+### Methods
+
 ```swift
-let croppedImage = interactiveImageView.cropAndGetImage()
-```
-#### Get original image without any modification on it.
-```swift
-let originalImage = interactiveImageView.getOriginalImage()
-```
-#### Set only image in the ImageView.
-```swift
-interactiveImageView.updateImageView(withImage image: UIImage?)
-```
-#### Update image in the ImageView.
-```swift
-interactiveImageView.updateImageOnly(_ image: UIImage?)
-```
-#### Toggle image content mode
-```swift
+// Configure with content mode, focus offset, and image
+interactiveImageView.configure(
+    withNextContentMode: .aspectFill,
+    withFocusOffset: .center,
+    withImage: image
+)
+
+// Crop visible area (async via delegate)
+interactiveImageView.performCropImage()
+
+// Crop and get image synchronously
+let cropped = interactiveImageView.cropAndGetImage()
+
+// Get the original unmodified image
+let original = interactiveImageView.getOriginalImage()
+
+// Update image without reconfiguring
+interactiveImageView.updateImageOnly(newImage)
+
+// Toggle between content modes
 interactiveImageView.toggleImageContentMode()
-```
-#### Rotate image
-```swift
-interactiveImageView.rotateImage(_ degrees: CGFloat, keepChanges: Bool)
+
+// Rotate image
+interactiveImageView.rotateImage(90, keepChanges: true)
 ```
 
-## User gestures
-#### Double tap to zoom gesture
+### Gesture Configuration
+
 ```swift
-interactiveImageView.isDoubleTapToZoomAllowed = false
+interactiveImageView.isScrollEnabled = true
+interactiveImageView.isPinchAllowed = true
+interactiveImageView.isDoubleTapToZoomAllowed = true
+interactiveImageView.doubleTapZoomFactor = 2.0
 ```
-#### Scroll view
-```swift
-interactiveImageView.isScrollEnabled = false
-```
-#### Pinch to zoom gesture
-```swift
-interactiveImageView.isPinchAllowed = false
-```
-## Delegate methods
+
+### Delegate
+
+All delegate methods are optional.
+
 ```swift
 protocol InteractiveImageViewDelegate: AnyObject {
     func didCropImage(image: UIImage, fromView: InteractiveImageView)
@@ -98,14 +117,131 @@ protocol InteractiveImageViewDelegate: AnyObject {
 }
 ```
 
+### Content Modes
+
+```swift
+enum IIVContentMode {
+    case aspectFill       // 1:1 square fill
+    case aspectFit        // Fit within bounds
+    case widthFill        // Fill width, scroll vertically
+    case heightFill       // Fill height, scroll horizontally
+    case customOffset(offset: CGFloat)  // Custom ratio (e.g. 2.0/3.0)
+}
+```
+
+## SwiftUI Usage
+
+Wrap `InteractiveImageView` in a `UIViewRepresentable`. Use a bridge class for imperative actions.
+
+```swift
+import SwiftUI
+import InteractiveImageView
+
+// Bridge for imperative SDK calls
+final class ImageViewActions {
+    fileprivate weak var view: InteractiveImageView?
+
+    func crop() { view?.performCropImage() }
+    func toggleContentMode() { view?.toggleImageContentMode() }
+    func rotate(degrees: CGFloat) { view?.rotateImage(degrees, keepChanges: true) }
+}
+
+struct InteractiveImageViewWrapper: UIViewRepresentable {
+    let image: UIImage?
+    let contentMode: IIVContentMode
+    let actions: ImageViewActions
+    var onCrop: (UIImage) -> Void = { _ in }
+
+    func makeUIView(context: Context) -> InteractiveImageView {
+        let view = InteractiveImageView(frame: .zero)
+        view.delegate = context.coordinator
+        actions.view = view
+        view.configure(
+            withNextContentMode: contentMode,
+            withFocusOffset: .center,
+            withImage: image
+        )
+        return view
+    }
+
+    func updateUIView(_ uiView: InteractiveImageView, context: Context) {
+        context.coordinator.onCrop = onCrop
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onCrop: onCrop)
+    }
+
+    final class Coordinator: NSObject, InteractiveImageViewDelegate {
+        var onCrop: (UIImage) -> Void
+
+        init(onCrop: @escaping (UIImage) -> Void) {
+            self.onCrop = onCrop
+        }
+
+        func didCropImage(image: UIImage, fromView: InteractiveImageView) {
+            onCrop(image)
+        }
+    }
+}
+```
+
+Then use it in any SwiftUI view:
+
+```swift
+struct ContentView: View {
+    private let actions = ImageViewActions()
+    @State private var croppedImage: UIImage?
+
+    var body: some View {
+        VStack {
+            InteractiveImageViewWrapper(
+                image: UIImage(named: "photo"),
+                contentMode: .aspectFill,
+                actions: actions,
+                onCrop: { croppedImage = $0 }
+            )
+            .frame(height: 400)
+
+            HStack {
+                Button("Crop") { actions.crop() }
+                Button("Rotate") { actions.rotate(degrees: 90) }
+                Button("Toggle") { actions.toggleContentMode() }
+            }
+
+            if let croppedImage {
+                Image(uiImage: croppedImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(height: 200)
+            }
+        }
+    }
+}
+```
+
 ## Example Project
-You can download and run example project `InteractiveImageViewExample`.
+
+Run `InteractiveImageViewExample` for a full SwiftUI demo showcasing all SDK features.
 
 ## Installation
 
-### CocoaPods
+### Swift Package Manager
 
-[CocoaPods](https://cocoapods.org) is a dependency manager for Cocoa projects. For usage and installation instructions, visit their website. To integrate InteractiveImageView into your Xcode project using CocoaPods, specify it in your `Podfile`:
+Add to your `Package.swift`:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/egzonpllana/InteractiveImageView.git", from: "2.0.0")
+]
+```
+
+Or in Xcode: File > Add Package Dependencies and enter:
+```
+https://github.com/egzonpllana/InteractiveImageView.git
+```
+
+### CocoaPods
 
 ```ruby
 pod 'InteractiveImageView'
@@ -113,28 +249,8 @@ pod 'InteractiveImageView'
 
 ### Carthage
 
-[Carthage](https://github.com/Carthage/Carthage) is a decentralized dependency manager that builds your dependencies and provides you with binary frameworks. To integrate InteractiveImageView into your Xcode project using Carthage, specify it in your `Cartfile`:
-
 ```ogdl
 github "egzonpllana/InteractiveImageView"
-```
-
-### Swift Package Manager through Manifest File
-
-The [Swift Package Manager](https://swift.org/package-manager/) is a tool for automating the distribution of Swift code and is integrated into the `swift` compiler.
-
-Once you have your Swift package set up, adding InteractiveImageView as a dependency is as easy as adding it to the `dependencies` value of your `Package.swift`.
-
-```swift
-dependencies: [
-    .package(url: "https://github.com/egzonpllana/InteractiveImageView.git", .upToNextMajor(from: "1.0.0"))
-]
-```
-
-### Swift Package Manager through XCode
-To add InteractiveImageView as a dependency to your Xcode project, select File > Swift Packages > Add Package Dependency and enter the repository URL
-```ogdl
-https://github.com/egzonpllana/InteractiveImageView.git
 ```
 
 ## Why InteractiveImageView?
