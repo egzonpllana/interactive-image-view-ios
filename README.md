@@ -4,27 +4,23 @@
 
 <p align="center">
     <img src="https://img.shields.io/badge/Swift-5.6-orange.svg" />
-    <a href="https://cocoapods.org/pods/InteractiveImageView">
-        <img src="https://img.shields.io/cocoapods/v/InteractiveImageView.svg" alt="CocoaPods" />
-    </a>
-    <a href="https://github.com/Carthage/Carthage">
-        <img src="https://img.shields.io/badge/carthage-compatible-4BC51D.svg?style=flat" alt="Carthage" />
-    </a>
     <a href="https://swift.org/package-manager">
         <img src="https://img.shields.io/badge/spm-compatible-brightgreen.svg?style=flat" alt="Swift Package Manager" />
     </a>
+    <img src="https://img.shields.io/badge/iOS-13%2B-blue.svg" />
 </p>
 
 A lightweight library for interactive image viewing — scroll, zoom, pinch, rotate, and crop — all inside a single `UIView`. Supports multiple content modes including custom aspect ratios (e.g. 2:3, 9:16). Works with both UIKit and SwiftUI.
 
 ## Features
 
-- Crop image at current visible position
+- Crop image at current visible position (async via delegate or synchronous)
 - Switch between content modes: aspect fill, aspect fit, width fill, height fill, or custom ratio
 - Scroll on both axes
 - Double-tap to zoom in/out with configurable zoom factor
 - Pinch to zoom
-- Rotate image by any degree
+- Rotate image by any degree with option to keep or discard changes
+- Programmatic scroll offset and zoom scale control
 - Delegate callbacks for crop, scroll, zoom, and failure events
 - All delegate methods are optional
 
@@ -33,13 +29,95 @@ A lightweight library for interactive image viewing — scroll, zoom, pinch, rot
     <img src="example-preview.png" width="380" max-height="50%" alt="InteractiveImageView" />
 </p>
 
+## API Reference
+
+### InteractiveImageView
+
+The main view class. Subclass of `UIView`.
+
+#### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `delegate` | `InteractiveImageViewDelegate?` | `nil` | Delegate for crop, scroll, zoom, and failure callbacks |
+| `isScrollEnabled` | `Bool` | `true` | Enable or disable scrolling |
+| `isPinchAllowed` | `Bool` | `true` | Enable or disable pinch-to-zoom |
+| `isDoubleTapToZoomAllowed` | `Bool` | `true` | Enable or disable double-tap zoom |
+| `doubleTapZoomFactor` | `CGFloat` | `2.0` | Zoom scale applied on double-tap (1.0–5.0) |
+
+#### Methods
+
+| Method | Description |
+|---|---|
+| `configure(withNextContentMode:withFocusOffset:withImage:)` | Configure with content mode, focus offset, and image |
+| `configure(withNextContentMode:withFocusOffset:withImage:withIdentifier:)` | Configure with an additional identifier for tracking |
+| `performCropImage()` | Crop visible area and deliver result via `didCropImage` delegate |
+| `cropAndGetImage() -> UIImage?` | Crop and return image synchronously |
+| `getOriginalImage() -> UIImage?` | Get the original unmodified image |
+| `updateImageOnly(_ image: UIImage?)` | Replace image without reconfiguring layout |
+| `updateImageView(withImage image: UIImage?)` | Update image in the image view |
+| `toggleImageContentMode()` | Toggle between current and alternate content mode |
+| `rotateImage(_ degrees: CGFloat, keepChanges: Bool)` | Rotate image by degrees; `keepChanges` preserves or discards rotation |
+| `setContentOffset(_ offset: CGPoint, animated: Bool, zoomScale: CGFloat)` | Programmatically set scroll position and zoom scale |
+
+### InteractiveImageViewDelegate
+
+All methods are optional via default implementation.
+
+```swift
+protocol InteractiveImageViewDelegate: AnyObject {
+    func didCropImage(image: UIImage, fromView: InteractiveImageView)
+    func didScrollAt(offset: CGPoint, scale: CGFloat, fromView: InteractiveImageView)
+    func didZoomAt(offset: CGPoint, scale: CGFloat, fromView: InteractiveImageView)
+    func didFail(_ fail: IIVFailType)
+}
+```
+
+### Enums
+
+#### IIVContentMode
+
+```swift
+enum IIVContentMode: Equatable, Sendable {
+    case aspectFill                    // 1:1 square fill
+    case aspectFit                     // Fit within bounds
+    case widthFill                     // Fill width, scroll vertically
+    case heightFill                    // Fill height, scroll horizontally
+    case customOffset(offset: CGFloat) // Custom ratio (e.g. 2.0/3.0 for 2:3)
+}
+```
+
+#### IIVFocusOffset
+
+```swift
+enum IIVFocusOffset: Int, Sendable {
+    case beginning  // Focus at the start of the image
+    case center     // Focus at the center of the image
+}
+```
+
+#### IIVFailType
+
+```swift
+enum IIVFailType: Sendable {
+    case cropImageFailed
+    case toggleContentModeFailed
+    case adjustFramesWhenZoomingFailed
+    case getImageViewFailed
+    case getImageFailed
+    case rotateImageFailed
+}
+```
+
+### Helpers
+
+| Type | Method | Description |
+|---|---|---|
+| `IIVCropHandler` | `cropImage(_:toRect:viewWidth:viewHeight:) -> UIImage?` | Crop a `UIImage` to a given rect |
+| `IIVImageRect` | `getImageRect(fromImageView:) -> CGRect` | Get the displayed image rect within a `UIImageView` |
+| `UIImage` | `rotated(by degrees: CGFloat) -> UIImage?` | Return a rotated copy of the image |
+
 ## UIKit Usage
-
-### Setup
-
-1. Add a `UIView` and set its class to `InteractiveImageView`
-2. Import `InteractiveImageView`
-3. Configure and set the delegate
 
 ```swift
 import InteractiveImageView
@@ -50,6 +128,7 @@ class ViewController: UIViewController, InteractiveImageViewDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         interactiveImageView.delegate = self
+        interactiveImageView.doubleTapZoomFactor = 3.0
 
         if let image = UIImage(named: "photo") {
             interactiveImageView.configure(
@@ -63,69 +142,10 @@ class ViewController: UIViewController, InteractiveImageViewDelegate {
     func didCropImage(image: UIImage, fromView: InteractiveImageView) {
         // Handle cropped image
     }
-}
-```
 
-### Methods
-
-```swift
-// Configure with content mode, focus offset, and image
-interactiveImageView.configure(
-    withNextContentMode: .aspectFill,
-    withFocusOffset: .center,
-    withImage: image
-)
-
-// Crop visible area (async via delegate)
-interactiveImageView.performCropImage()
-
-// Crop and get image synchronously
-let cropped = interactiveImageView.cropAndGetImage()
-
-// Get the original unmodified image
-let original = interactiveImageView.getOriginalImage()
-
-// Update image without reconfiguring
-interactiveImageView.updateImageOnly(newImage)
-
-// Toggle between content modes
-interactiveImageView.toggleImageContentMode()
-
-// Rotate image
-interactiveImageView.rotateImage(90, keepChanges: true)
-```
-
-### Gesture Configuration
-
-```swift
-interactiveImageView.isScrollEnabled = true
-interactiveImageView.isPinchAllowed = true
-interactiveImageView.isDoubleTapToZoomAllowed = true
-interactiveImageView.doubleTapZoomFactor = 2.0
-```
-
-### Delegate
-
-All delegate methods are optional.
-
-```swift
-protocol InteractiveImageViewDelegate: AnyObject {
-    func didCropImage(image: UIImage, fromView: InteractiveImageView)
-    func didScrollAt(offset: CGPoint, scale: CGFloat, fromView: InteractiveImageView)
-    func didZoomAt(offset: CGPoint, scale: CGFloat, fromView: InteractiveImageView)
-    func didFail(_ fail: IIVFailType)
-}
-```
-
-### Content Modes
-
-```swift
-enum IIVContentMode {
-    case aspectFill       // 1:1 square fill
-    case aspectFit        // Fit within bounds
-    case widthFill        // Fill width, scroll vertically
-    case heightFill       // Fill height, scroll horizontally
-    case customOffset(offset: CGFloat)  // Custom ratio (e.g. 2.0/3.0)
+    func didFail(_ fail: IIVFailType) {
+        // Handle failure
+    }
 }
 ```
 
@@ -137,7 +157,6 @@ Wrap `InteractiveImageView` in a `UIViewRepresentable`. Use a bridge class for i
 import SwiftUI
 import InteractiveImageView
 
-// Bridge for imperative SDK calls
 final class ImageViewActions {
     fileprivate weak var view: InteractiveImageView?
 
@@ -222,11 +241,11 @@ struct ContentView: View {
 
 ## Example Project
 
-Run `InteractiveImageViewExample` for a full SwiftUI demo showcasing all SDK features.
+Run `InteractiveImageViewExample` for a full SwiftUI demo showcasing all SDK features including content mode switching, focus offset, gesture toggles, zoom factor, crop, and rotation.
 
 ## Installation
 
-### Swift Package Manager
+### Swift Package Manager (Recommended)
 
 Add to your `Package.swift`:
 
@@ -241,17 +260,13 @@ Or in Xcode: File > Add Package Dependencies and enter:
 https://github.com/egzonpllana/InteractiveImageView.git
 ```
 
-### CocoaPods
+### CocoaPods (Deprecated)
 
-```ruby
-pod 'InteractiveImageView'
-```
+> **Note:** As of v2.0.0, CocoaPods is no longer supported. Please migrate to Swift Package Manager, which is Apple's official dependency management solution. The last CocoaPods-compatible version is 1.1.2.
 
-### Carthage
+### Carthage (Deprecated)
 
-```ogdl
-github "egzonpllana/InteractiveImageView"
-```
+> **Note:** As of v2.0.0, Carthage is no longer supported. Please migrate to Swift Package Manager. The last Carthage-compatible version is 1.1.2.
 
 ## Why InteractiveImageView?
 
