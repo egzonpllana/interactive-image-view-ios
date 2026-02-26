@@ -11,8 +11,17 @@
 
 import UIKit
 
+/// Handles cropping operations for images displayed in an `InteractiveImageView`.
 public struct IIVCropHandler {
-    static func cropImage(_ inputImage: UIImage, toRect cropRect: CGRect, viewWidth: CGFloat, viewHeight: CGFloat) -> UIImage? {
+    /// Crops an image to the specified rectangle, scaling the crop zone relative to the view dimensions.
+    ///
+    /// - Parameters:
+    ///   - inputImage: The source image to crop.
+    ///   - cropRect: The crop rectangle in view coordinates.
+    ///   - viewWidth: The width of the view displaying the image.
+    ///   - viewHeight: The height of the view displaying the image.
+    /// - Returns: The cropped image, or `nil` if cropping fails.
+    public static func cropImage(_ inputImage: UIImage, toRect cropRect: CGRect, viewWidth: CGFloat, viewHeight: CGFloat) -> UIImage? {
         let imageViewScale = max(inputImage.size.width / viewWidth,
                                  inputImage.size.height / viewHeight)
 

@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-    <img src="https://img.shields.io/badge/Swift-5.0-orange.svg" />
+    <img src="https://img.shields.io/badge/Swift-5.6-orange.svg" />
     <a href="https://cocoapods.org/pods/InteractiveImageView">
         <img src="https://img.shields.io/cocoapods/v/InteractiveImageView.svg" alt="CocoaPods" />
     </a>
@@ -30,7 +30,7 @@ Welcome to **Interactive Image View**, a simple library that provides an easier 
 
 ### Preview
 <p align="left">
-    <img src="example-preview.gif" width="380" max-height="50%" alt=“InteractiveImageView” />
+    <img src=”example-preview.png” width=”380” max-height=”50%” alt=”InteractiveImageView” />
 </p>
 
 ## Setup
@@ -64,7 +64,7 @@ interactiveImageView.updateImageView(withImage image: UIImage?)
 ```
 #### Update image in the ImageView.
 ```swift
-interactiveImageView.uupdateImageOnly(_ image: UIImage?)
+interactiveImageView.updateImageOnly(_ image: UIImage?)
 ```
 #### Toggle image content mode
 ```swift
@@ -72,7 +72,7 @@ interactiveImageView.toggleImageContentMode()
 ```
 #### Rotate image
 ```swift
-interactiveImageView.rotateImage(UIImage, keepChanges: Bool)
+interactiveImageView.rotateImage(_ degrees: CGFloat, keepChanges: Bool)
 ```
 
 ## User gestures
@@ -137,9 +137,9 @@ To add InteractiveImageView as a dependency to your Xcode project, select File >
 https://github.com/egzonpllana/InteractiveImageView.git
 ```
 
-## Backstory
+## Why InteractiveImageView?
 
-So, why was this made? While I was working on a project to provide an interactive image view based on given aspect ration, I could not find a suitable solution that offers all in one these features working in a single view without a need for a viewcontroller, so I build it.
+A window is just glass until someone opens it. InteractiveImageView turns a static `UIImageView` into a living surface — one that responds to touch, yields to gestures, and frames exactly what the user intends. Scroll, zoom, pinch, rotate, crop — all orchestrated inside a single `UIView`, no view controller ceremony required. Drop it into any layout, any aspect ratio, any composition, and let the image breathe.
 
 ## Questions or feedback?
 

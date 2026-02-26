@@ -8,7 +8,10 @@
 
 import Foundation
 
-public enum IIVFocusOffset: Int {
-    case begining
+/// Defines the initial scroll offset when configuring an `InteractiveImageView`.
+public enum IIVFocusOffset: Int, Sendable {
+    /// Positions the image at the top-left origin.
+    case beginning
+    /// Centers the image within the visible bounds.
     case center
 }

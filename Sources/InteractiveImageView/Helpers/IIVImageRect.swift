@@ -11,8 +11,13 @@
 
 import UIKit
 
+/// Computes the display rectangle of an image within its image view, accounting for aspect ratio.
 public struct IIVImageRect {
-    static func getImageRect(fromImageView imageView: UIImageView) -> CGRect {
+    /// Calculates the actual display rectangle of the image inside the given image view.
+    ///
+    /// - Parameter imageView: The image view containing the image.
+    /// - Returns: The rectangle representing the image's visible area in the image view's coordinate space.
+    public static func getImageRect(fromImageView imageView: UIImageView) -> CGRect {
         let imageViewSize = imageView.frame.size
         let imgSize = imageView.image?.size
 

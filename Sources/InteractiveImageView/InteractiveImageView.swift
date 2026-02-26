@@ -39,6 +39,14 @@ public protocol InteractiveImageViewDelegate: AnyObject {
     func didFail(_ fail: IIVFailType)
 }
 
+// MARK: - InteractiveImageViewDelegate Defaults -
+public extension InteractiveImageViewDelegate {
+    func didCropImage(image: UIImage, fromView: InteractiveImageView) {}
+    func didScrollAt(offset: CGPoint, scale: CGFloat, fromView: InteractiveImageView) {}
+    func didZoomAt(offset: CGPoint, scale: CGFloat, fromView: InteractiveImageView) {}
+    func didFail(_ fail: IIVFailType) {}
+}
+
 /// A custom `UIView` subclass that provides interactive functionalities for displaying and manipulating images.
 public class InteractiveImageView: UIView {
 
@@ -59,21 +67,22 @@ public class InteractiveImageView: UIView {
 
     // MARK: - Private Properties -
     private var scrollView: UIScrollView = UIScrollView()
-    private var imageView: UIImageView? = .none
-    private var originalImage: UIImage? = .none
+    private var imageView: UIImageView? = nil
+    private var originalImage: UIImage? = nil
     private var imageContentMode: IIVContentMode = .aspectFill
     private var nextContentMode: IIVContentMode = .aspectFit
-    private var configuredImage: UIImage? = .none
+    private var configuredImage: UIImage? = nil
     private var imageSize: CGSize = CGSize.zero
-    private var initialOffset: IIVFocusOffset = .begining
+    private var initialOffset: IIVFocusOffset = .beginning
     private var scrollViewOffsetY: CGFloat = 0.0
     private var scrollViewOffsetX: CGFloat = 0.0
     private var pointToCenterAfterResize: CGPoint = CGPoint.zero
     private var scaleToRestoreAfterResize: CGFloat = 1.0
-    private var maxScaleFromMinScale: CGFloat = 999.0 // max scale factor
+    private static let defaultMaxScaleMultiplier: CGFloat = 999.0
+    private var maxScaleFromMinScale: CGFloat = InteractiveImageView.defaultMaxScaleMultiplier
 
     // MARK: - Initialization -
-    override init(frame: CGRect) {
+    public override init(frame: CGRect) {
         super.init(frame: frame)
         initialize()
     }
@@ -91,8 +100,8 @@ public class InteractiveImageView: UIView {
         scrollView.decelerationRate = UIScrollView.DecelerationRate.fast
         scrollView.delegate = self
 
-        // A workaround to setup pinchGestureRecognizer
-        DispatchQueue.main.asyncAfter(deadline: .now()) {
+        // Deferred to next run loop — pinchGestureRecognizer is nil until scroll view is added to the hierarchy
+        DispatchQueue.main.async {
             self.scrollView.pinchGestureRecognizer?.isEnabled = self.isPinchAllowed
         }
 
@@ -151,12 +160,12 @@ extension InteractiveImageView: InteractiveImageViewProtocol {
         self.tag = identifier
 
         // get top super view
-        var topSupperView = superview
-        while topSupperView?.superview != nil {
-            topSupperView = topSupperView?.superview
+        var topSuperView = superview
+        while topSuperView?.superview != nil {
+            topSuperView = topSuperView?.superview
         }
         // make sure views have already layout with precise frame
-        topSupperView?.layoutIfNeeded()
+        topSuperView?.layoutIfNeeded()
 
         // reload UI in main thread
         DispatchQueue.main.async { self.refresh() }
@@ -211,10 +220,13 @@ extension InteractiveImageView: InteractiveImageViewProtocol {
             updateImageOnly(rotatedImage)
         } else {
             guard let originalImage else {
-                print("There was an error getting original image.")
+                delegate?.didFail(.rotateImageFailed)
                 return
             }
-            let rotatedImage = originalImage.rotated(by: degrees)!
+            guard let rotatedImage = originalImage.rotated(by: degrees) else {
+                delegate?.didFail(.rotateImageFailed)
+                return
+            }
             updateImageOnly(rotatedImage)
         }
     }
@@ -330,7 +342,7 @@ private extension InteractiveImageView {
         scrollView.zoomScale = scrollView.minimumZoomScale
 
         switch initialOffset {
-        case .begining:
+        case .beginning:
             scrollView.contentOffset =  CGPoint.zero
         case .center:
             let xOffset = scrollView.contentSize.width < bounds.width ? 0 : (scrollView.contentSize.width - bounds.width)/2
@@ -383,6 +395,8 @@ private extension InteractiveImageView {
     }
 
     func prepareToResize() {
+        guard let imageView else { return }
+
         let boundsCenter = CGPoint(x: bounds.midX, y: bounds.midY)
         pointToCenterAfterResize = convert(boundsCenter, to: imageView)
 
@@ -403,6 +417,7 @@ private extension InteractiveImageView {
         scrollView.zoomScale = min(scrollView.maximumZoomScale, maxZoomScale)
 
         // restore center point, first making sure it is within the allowable range.
+        guard let imageView else { return }
 
         // convert our desired center point back to our own coordinate space
         let boundsCenter = convert(pointToCenterAfterResize, to: imageView)
@@ -465,21 +480,9 @@ extension InteractiveImageView: UIScrollViewDelegate {
         scrollViewOffsetX = scrollView.contentOffset.x
     }
 
-    public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) { }
-
-    public func scrollViewWillEndDragging(_ scrollView: UIScrollView, withVelocity velocity: CGPoint, targetContentOffset: UnsafeMutablePointer<CGPoint>) { }
-
-    public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) { }
-
-    public func scrollViewWillBeginDecelerating(_ scrollView: UIScrollView) { }
-
     public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         delegate?.didScrollAt(offset: scrollView.contentOffset, scale: scrollView.zoomScale, fromView: self)
     }
-
-    public func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) { }
-
-    public func scrollViewWillBeginZooming(_ scrollView: UIScrollView, with view: UIView?) { }
 
     public func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
         delegate?.didZoomAt(offset: scrollView.contentOffset, scale: scrollView.zoomScale, fromView: self)
@@ -488,9 +491,6 @@ extension InteractiveImageView: UIScrollViewDelegate {
     public func scrollViewShouldScrollToTop(_ scrollView: UIScrollView) -> Bool {
         return false
     }
-
-    @available(iOS 11.0, *)
-    public func scrollViewDidChangeAdjustedContentInset(_ scrollView: UIScrollView) { }
 
     public func viewForZooming(in scrollView: UIScrollView) -> UIView? {
         return imageView
